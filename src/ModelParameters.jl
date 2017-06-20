@@ -125,4 +125,6 @@ function getparameters(params, val)
     return params
 end
 
+include("macros.jl")
+
 end # module
