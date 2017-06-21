@@ -3,10 +3,10 @@ module ModelParameters
 export AbstractParameter, Parameter, getparameters,
     show, lower, upper, initial, value, constant, convert,
     +, *, -, /, <, isequal, isapprox, one, zero, norm, real, imag,
-    isparameter, isfixed, reset!
+    isparameter, isfixed, reset!, promote_rule, promote_type
 
-import Base: +, *, -, /, \, ==, <, promote_rule, convert, push!, isequal,
-    one, oneunit, zero, norm, real, imag, isapprox
+import Base: +, *, -, /, \, ==, <, promote_rule, promote_type, convert,
+    push!, isequal, one, oneunit, zero, norm, real, imag, isapprox
 
 abstract type AbstractParameter <: Number end
 
@@ -16,7 +16,7 @@ mutable struct Parameter{T<:Number} <: AbstractParameter
     lower::T
     upper::T
     isfixed::Bool
-    function Parameter(initial::T, lower::T, upper::T) where T<:Number
+    function Parameter{T}(initial, lower, upper) where T<:Number
         if lower > upper
             throw(ArgumentError(
                 "Invalid interval: lower bound is greater than upper bound."))
@@ -29,6 +29,11 @@ mutable struct Parameter{T<:Number} <: AbstractParameter
     end
 end
 
+function Parameter(initial::T, lower::S, upper::R) where
+    {T<:Number, S<:Number, R<:Number}
+    typ = promote_type(T, promote_type(S, R))
+    Parameter{typ}(typ(initial), typ(lower), typ(upper))
+end
 Parameter(v::T) where {T} = Parameter(v, typemin(T), typemax(T))
 Parameter(lower, upper) = Parameter(lower + (upper - lower) / 2, lower, upper)
 constant(v) = Parameter(v, v, v)
@@ -62,8 +67,23 @@ norm(p::Parameter) = p.value
 real(p::Parameter) = p.value
 imag(p::Parameter) = 0.0
 
-convert(::Type{Parameter{T}}, v::T) where T<:Number = constant(v)
-promote_rule(::Type{Parameter{T}}, ::Type{T}) where T<:Number = Parameter{T}
+convert(::Type{Parameter{T}}, v::T) where {T<:Number} = constant(v)
+convert(::Type{Parameter{T}}, v::S) where {T<:Number,S<:Number} = constant(T(v))
+function convert(::Type{Parameter{T}}, v::Parameter{S}) where
+    {T<:Number,S<:Number}
+    typ = promote_type(T, S)
+    Parameter{promote_type(T,S)}(typ(initial(v)), typ(lower(v)), typ(upper(v)))
+end
+promote_rule(::Type{Parameter{T}}, ::Type{S}) where
+    {T<:Number,S<:Number} = Parameter{promote_type(T,S)}
+promote_rule(::Type{T}, ::Type{Parameter{S}}) where
+    {T<:Number,S<:Number} = Parameter{promote_type(T,S)}
+promote_rule(::Type{Parameter{T}}, ::Type{Parameter{S}}) where
+    {T<:Number,S<:Number} = Parameter{promote_type(T,S)}
+promote_type(::Type{Parameter{T}}, ::Type{S}) where
+    {T<:Number,S<:Number} = Parameter{promote_type(T,S)}
+promote_type(::Type{Parameter{T}}, ::Type{Parameter{S}}) where
+    {T<:Number,S<:Number} = Parameter{promote_type(T,S)}
 
 Base.show(io::IO, prm::Parameter) = prm.isfixed ? print(io, prm.value) :
     print(io, prm.lower, " ≤ ", prm.value, " ≤ ", prm.upper)

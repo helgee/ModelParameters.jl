@@ -133,6 +133,12 @@ end
             end
         end
     end
+    @testset "Promotion" begin
+        @test [Parameter(1.0), 1.0, 1] ==
+            [Parameter(1.0), constant(1.0), constant(1.0)]
+        @test promote(Parameter(1.0), 1.0, 1) ==
+            (Parameter(1.0), constant(1.0), constant(1.0))
+    end
     @testset "vary" begin
         exp = TestStruct(Parameter(0.5, 0.0, 1.0))
         act = @vary(x >= 0.0, x <= 1.0, x = 0.5, TestStruct(x))
